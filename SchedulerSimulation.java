@@ -29,6 +29,8 @@ class Process implements Runnable {
     private int burstTime; // Total time the process requires to complete (in milliseconds)
     private int timeQuantum; // Time slice (time quantum) allowed per CPU access (in milliseconds)
     private int remainingTime; // Time left for the process to finish its execution
+    private long totalWaitingTime;
+private long lastQueueEnterTime;
 private int priority; // NEW 
     // Constructor to initialize the process with name, burst time, and time quantum
    public Process(String name, int burstTime, int timeQuantum, int priority) {
@@ -37,8 +39,19 @@ private int priority; // NEW
         this.timeQuantum = timeQuantum;
         this.remainingTime = burstTime; // Initially, remaining time is equal to the burst time
         this.priority = priority;
+        this.totalWaitingTime = 0;
+this.lastQueueEnterTime = System.currentTimeMillis();
     }
-
+public void setLastQueueEnterTime(long time) {
+    this.lastQueueEnterTime = time;
+}
+public void updateWaitingTime() {
+    long now = System.currentTimeMillis();
+    totalWaitingTime += (now - lastQueueEnterTime);
+}
+public long getWaitingTime() {
+    return totalWaitingTime;
+}
     // This method will be called when the thread for this process is started
     @Override
     public void run() {
@@ -254,6 +267,7 @@ Process process = new Process("P" + i, burstTime, timeQuantum, priority);
             
             // Retrieve the process associated with the thread from the map
             Process process = processMap.get(currentThread);
+            process.updateWaitingTime();
             
             // Check if the process is not finished
             if (!process.isFinished()) {
@@ -283,11 +297,27 @@ Process process = new Process("P" + i, burstTime, timeQuantum, priority);
                           "╚════════════════════════════════════════════════════════════════════════════════╝" + 
                           Colors.RESET + "\n");
                           System.out.println("Total context switches: " + contextSwitches);
+                          System.out.println("\n=== Waiting Time Summary ===");
+System.out.printf("%-10s %-15s %-15s\n", "Process", "Burst Time", "Waiting Time");
+
+Map<String, Process> uniqueProcesses = new HashMap<>();
+
+for (Process p : processMap.values()) {
+    uniqueProcesses.put(p.getName(), p);
+}
+
+for (Process p : uniqueProcesses.values()) {
+    System.out.printf("%-10s %-15d %-15d\n",
+        p.getName(),
+        p.getBurstTime(),
+        p.getWaitingTime());
+}
     }
     
     // Method to add a process to the queue and map, while printing a "ready" message
     public static void addProcessToQueue(Process process, Queue<Thread> processQueue, 
                                         Map<Thread, Process> processMap) {
+                                            process.setLastQueueEnterTime(System.currentTimeMillis());
         // Create a new thread to run the process
         Thread thread = new Thread(process);
         
